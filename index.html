@@ -8,8 +8,10 @@
     font-family: monospace;
     padding: 20px;
   }
-  textarea {
+  textarea, input {
     width: 100%;
+  }
+  textarea {
     height: 120px;
   }
   .output {
@@ -27,13 +29,17 @@
 
 <h2>Base64 Decode-and-Check Scanner</h2>
 <p>
-    <i>By Rebase</i><br/><br/>
-    This tool will highlight any tetragram present in the base64 if all characters decode to valid readable characters.<br/>
-    This tool defines readable characters as A-Z, a-z, 0-9, space, and common punctuation such as period, comma, exclamation, or quesiton mark.
+  <i>By Rebase</i><br><br>
+  This tool highlights any Base64 tetragram whose decoded bytes all fall within
+  a user-defined readable character set.
 </p>
 
 <p>Paste a Base64 string:</p>
 <textarea id="input"></textarea>
+
+<p>Allowed decoded characters (leave blank for default):</p>
+<input id="charset" placeholder="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?! ">
+
 <br><br>
 <button id="scan">Scan</button>
 
@@ -41,22 +47,25 @@
 
 <script>
 function reverseString(str) {
-    var newString = "";
-    for (var i = str.length - 1; i >= 0; i--) {
-        newString += str[i];
-    }
-    return newString;
+  let out = "";
+  for (let i = str.length - 1; i >= 0; i--) {
+    out += str[i];
+  }
+  return out;
 }
-// Allowed decoded bytes: A–Z, a–z, space
-const ALLOWED = new Set(
-  [..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?! "]
-    .map(c => c.charCodeAt(0))
-);
 
-// Strict Base64 regex (no padding allowed for tetragrams)
+// Default allowed characters
+const DEFAULT_ALLOWED_CHARS =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?! ";
+
+// Strict Base64 regex (no padding)
 const B64_RE = /^[A-Za-z0-9+/]{4}$/;
 
-function isAlphaTetragram(b64) {
+function buildAllowedSet(chars) {
+  return new Set([...chars].map(c => c.charCodeAt(0)));
+}
+
+function isValidTetragram(b64, allowedSet) {
   if (!B64_RE.test(b64)) return false;
 
   try {
@@ -64,7 +73,7 @@ function isAlphaTetragram(b64) {
     if (bin.length !== 3) return false;
 
     for (let i = 0; i < 3; i++) {
-      if (!ALLOWED.has(bin.charCodeAt(i))) {
+      if (!allowedSet.has(bin.charCodeAt(i))) {
         return false;
       }
     }
@@ -76,11 +85,17 @@ function isAlphaTetragram(b64) {
 
 document.getElementById("scan").addEventListener("click", () => {
   const s = document.getElementById("input").value.trim();
+  const charsetInput = document.getElementById("charset").value;
+
+  const allowedChars =
+    charsetInput.length > 0 ? charsetInput : DEFAULT_ALLOWED_CHARS;
+
+  const allowedSet = buildAllowedSet(allowedChars);
   const hits = new Array(s.length).fill(false);
 
   for (let i = 0; i <= s.length - 4; i++) {
     const quad = s.slice(i, i + 4);
-    if (isAlphaTetragram(quad)) {
+    if (isValidTetragram(quad, allowedSet)) {
       for (let j = i; j < i + 4; j++) {
         hits[j] = true;
       }
@@ -96,9 +111,21 @@ document.getElementById("scan").addEventListener("click", () => {
 
   out += "\n\n<b>Reversed results:</b>\n";
 
-  let reversed = reverseString(s);
+  const reversedHits = new Array(s.length).fill(false);
+  const reversed = reverseString(s);
+
+  for (let i = 0; i <= reversed.length - 4; i++) {
+    const quad = reversed.slice(i, i + 4);
+    if (isValidTetragram(quad, allowedSet)) {
+      for (let j = i; j < i + 4; j++) {
+        reversedHits[j] = true;
+      }
+    }
+  }
+
+
   for (let i = 0; i < reversed.length; i++) {
-    out += hits[i]
+    out += reversedHits[i]
       ? `<span class="hit">${reversed[i]}</span>`
       : reversed[i];
   }
