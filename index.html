@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Base64 Tetragram Decoder</title>
+<style>
+  body {
+    font-family: monospace;
+    padding: 20px;
+  }
+  textarea {
+    width: 100%;
+    height: 120px;
+  }
+  .output {
+    margin-top: 20px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: monospace;
+  }
+  .hit {
+    background-color: #ffeb3b;
+  }
+</style>
+</head>
+<body>
+
+<h2>Base64 Decode-and-Check Scanner</h2>
+
+<p>Paste a Base64 string:</p>
+<textarea id="input"></textarea>
+<br><br>
+<button id="scan">Scan</button>
+
+<div class="output" id="output"></div>
+
+<script>
+function reverseString(str) {
+    var newString = "";
+    for (var i = str.length - 1; i >= 0; i--) {
+        newString += str[i];
+    }
+    return newString;
+}
+// Allowed decoded bytes: A–Z, a–z, space
+const ALLOWED = new Set(
+  [..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,?! "]
+    .map(c => c.charCodeAt(0))
+);
+
+// Strict Base64 regex (no padding allowed for tetragrams)
+const B64_RE = /^[A-Za-z0-9+/]{4}$/;
+
+function isAlphaTetragram(b64) {
+  if (!B64_RE.test(b64)) return false;
+
+  try {
+    const bin = atob(b64);
+    if (bin.length !== 3) return false;
+
+    for (let i = 0; i < 3; i++) {
+      if (!ALLOWED.has(bin.charCodeAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+document.getElementById("scan").addEventListener("click", () => {
+  const s = document.getElementById("input").value.trim();
+  const hits = new Array(s.length).fill(false);
+
+  for (let i = 0; i <= s.length - 4; i++) {
+    const quad = s.slice(i, i + 4);
+    if (isAlphaTetragram(quad)) {
+      for (let j = i; j < i + 4; j++) {
+        hits[j] = true;
+      }
+    }
+  }
+
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    out += hits[i]
+      ? `<span class="hit">${s[i]}</span>`
+      : s[i];
+  }
+
+  out += "\n\n<b>Reversed results:</b>\n";
+
+  let reversed = reverseString(s);
+  for (let i = 0; i < reversed.length; i++) {
+    out += hits[i]
+      ? `<span class="hit">${reversed[i]}</span>`
+      : reversed[i];
+  }
+
+  document.getElementById("output").innerHTML = out;
+});
+</script>
+
+</body>
+</html>
